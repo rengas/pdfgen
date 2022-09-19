@@ -30,10 +30,10 @@ type Field struct {
 }
 
 type CreateTemplateRequest struct {
-	Name      string  `json:"name"`
-	ProfileId string  `json:"profileId"`
-	Design    string  `json:"design"`
-	Fields    []Field `json:"fields"`
+	Name      string                 `json:"name"`
+	ProfileId string                 `json:"profileId"`
+	Design    string                 `json:"design"`
+	Fields    map[string]interface{} `json:"fields"`
 }
 
 func (c CreateTemplateRequest) GetDesignModel() (design.Design, error) {
@@ -43,22 +43,21 @@ func (c CreateTemplateRequest) GetDesignModel() (design.Design, error) {
 	}
 
 	if c.ProfileId == "" {
-		return design.Design{}, errors.New("profile is empty")
+		return design.Design{}, errors.New("profileId is empty")
 	}
 
 	if c.Fields == nil {
-		return design.Design{}, errors.New("fields is empty")
+		return design.Design{}, errors.New("fields are empty")
 	}
 
-	for _, field := range c.Fields {
-		f := field.Value
-		switch f.(type) {
+	for k, v := range c.Fields {
+		switch v.(type) {
 		case string:
 		case float64:
 		case int:
 			continue
 		default:
-			return design.Design{}, errors.New(fmt.Sprintf("%s should either be float,string or int", field.Name))
+			return design.Design{}, errors.New(fmt.Sprintf("%s has unsupported type for value", k))
 		}
 	}
 
@@ -68,16 +67,19 @@ func (c CreateTemplateRequest) GetDesignModel() (design.Design, error) {
 	}
 
 	if c.Design == "" {
-		return design.Design{}, errors.New("design cannot be empty")
+		return design.Design{}, errors.New("design is empty")
 	}
 
-	rawDecodedText, err := base64.StdEncoding.DecodeString(c.Design)
+	dt, err := base64.StdEncoding.DecodeString(c.Design)
 	if err != nil {
-		return design.Design{}, errors.New("template must be base64 encoded")
+		if _, ok := err.(base64.CorruptInputError); ok {
+			return design.Design{}, errors.New("invalid design")
+		}
+		return design.Design{}, errors.New("design must be base64 encoded")
 	}
 
 	//validate if valid design
-	_, err = template.New("").Parse(string(rawDecodedText))
+	_, err = template.New(c.Name).Parse(string(dt))
 	if err != nil {
 		return design.Design{}, fmt.Errorf("invalid html design %w", err)
 	}
@@ -86,7 +88,7 @@ func (c CreateTemplateRequest) GetDesignModel() (design.Design, error) {
 		Id:        uuid.NewString(),
 		ProfileId: c.ProfileId,
 		Name:      c.Name,
-		Template:  rawDecodedText,
+		Template:  dt,
 		Fields:    b,
 	}, nil
 }
