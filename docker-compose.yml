@@ -1,0 +1,50 @@
+services:
+  pg:
+    image: postgres:14.1
+    container_name: postgres
+    networks:
+      - pdfgen-network
+    environment:
+      PGUSER: pdfgen
+      POSTGRES_USER: pdfgen
+      POSTGRES_PASSWORD: pdfgen
+      POSTGRES_DB: pdfgen
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 3s
+      timeout: 3s
+      retries: 4
+
+  migrate:
+    image: migrate/migrate
+    networks:
+      - pdfgen-network
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgres://pdfgen:pdfgen@pg:5432/pdfgen?sslmode=disable
+      - up
+    volumes:
+      - ./migrations:/migrations
+    depends_on:
+      pg:
+        condition: service_healthy
+
+  account:
+    build:
+      context: .
+      dockerfile: cmd/api/Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - pdfgen-network
+    depends_on:
+      - pg
+    restart: on-failure
+
+networks:
+    pdfgen-network:
+      driver: bridge
