@@ -31,3 +31,14 @@ func (r *DesignRepository) Save(ctx context.Context, p Design) error {
 
 	return nil
 }
+
+func (r *DesignRepository) GetByID(ctx context.Context, id string) (Design, error) {
+	var d Design
+	err := r.db.QueryRowContext(ctx, "SELECT id,name,profile_id, fields, template FROM design WHERE id = $1", id).
+		Scan(&d.Id, &d.Name, &d.ProfileId, &d.Fields, &d.Template)
+	if err != nil {
+		return Design{}, err
+	}
+
+	return d, nil
+}

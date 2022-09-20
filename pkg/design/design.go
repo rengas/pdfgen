@@ -11,7 +11,7 @@ type Design struct {
 	Name      string `json:"name"`
 	ProfileId string `json:"profileId"`
 	Fields    *Attrs `json:"fields"`
-	Template  []byte `json:"design"`
+	Template  string `json:"design"`
 }
 
 type Attrs map[string]interface{}

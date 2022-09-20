@@ -46,3 +46,10 @@ func WriteJSON(w http.ResponseWriter, v interface{}, statusCode int) error {
 	w.Write(b)
 	return nil
 }
+
+func WriteFile(w http.ResponseWriter, b []byte, statusCode int) error {
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.WriteHeader(statusCode)
+	w.Write(b)
+	return nil
+}

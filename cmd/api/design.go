@@ -9,9 +9,8 @@ import (
 	"github.com/rengas/pdfgen/pkg/design"
 	"github.com/rengas/pdfgen/pkg/httputils"
 	"html/template"
-	"reflect"
-
 	"net/http"
+	"reflect"
 )
 
 type DesignAPI struct {
@@ -25,11 +24,6 @@ func NewDesignAPI(designRepo DesignRepository,
 		designRepo: designRepo,
 		minfier:    minifier,
 	}
-}
-
-type Field struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
 }
 
 type CreateTemplateRequest struct {
@@ -103,8 +97,9 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	ws := string(dt)
 	//validate if valid design
-	_, err = template.New(t.Name).Parse(string(dt))
+	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
 		httputils.WriteJSON(w,
 			httputils.BadRequest("invalid html design "),
@@ -112,7 +107,7 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	mt, err := d.minfier.HTML(dt)
+	mt, err := d.minfier.HTML(ws)
 	if err != nil {
 		httputils.WriteJSON(w,
 			httputils.InternalError("unable to minifier template"),

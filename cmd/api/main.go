@@ -8,8 +8,10 @@ import (
 	"github.com/rengas/pdfgen/pkg/dbutils"
 	"github.com/rengas/pdfgen/pkg/design"
 	"github.com/rengas/pdfgen/pkg/minifier"
+	"github.com/rengas/pdfgen/pkg/pdfrender"
 	"github.com/rengas/pdfgen/pkg/server"
 	"github.com/rengas/pdfgen/pkg/service"
+	"io"
 	"log"
 	"syscall"
 	"time"
@@ -26,11 +28,16 @@ type ProfileRepository interface {
 }
 
 type DesignRepository interface {
-	Save(ctx context.Context, p design.Design) error
+	Save(ctx context.Context, d design.Design) error
+	GetByID(ctx context.Context, id string) (design.Design, error)
 }
 
 type Minifier interface {
-	HTML(b []byte) ([]byte, error)
+	HTML(s string) (string, error)
+}
+
+type Renderer interface {
+	HTML(r io.Reader) ([]byte, error)
 }
 
 func main() {
@@ -40,14 +47,17 @@ func main() {
 	profileRepo := account.NewProfileRepository(db)
 	designRepo := design.NewDesignRepository(db)
 	minify := minifier.NewMinifier()
+	renderer := pdfrender.NewPDFRenderer()
 
 	profileAPI := NewProfileAPI(profileRepo)
 	designAPI := NewDesignAPI(designRepo, minify)
+	generatorAPI := NewGeneratorAPI(designRepo, renderer)
 
 	r := chi.NewRouter()
 	r.Get("/health", profileAPI.Health)
 	r.Post("/profile", profileAPI.CreateProfile)
 	r.Post("/design", designAPI.CreateDesign)
+	r.Post("/generate", generatorAPI.GeneratePDF)
 
 	s := server.NewHTTPServer(*addr, r, *shutdownTimeout)
 	s.Start()

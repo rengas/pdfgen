@@ -16,16 +16,22 @@ type Minifier struct {
 
 func NewMinifier() *Minifier {
 	m := minify.New()
-	m.AddFunc(mediaTypeHTML, html.Minify)
+	m.Add(mediaTypeHTML, &html.Minifier{
+		KeepConditionalComments: true,
+		KeepDefaultAttrVals:     true,
+		KeepDocumentTags:        true,
+		KeepEndTags:             true,
+		KeepWhitespace:          false,
+	})
 	return &Minifier{
 		m: m,
 	}
 }
 
-func (f Minifier) HTML(b []byte) ([]byte, error) {
-	bs, err := f.m.Bytes(mediaTypeHTML, b)
+func (f Minifier) HTML(s string) (string, error) {
+	bs, err := f.m.String(mediaTypeHTML, s)
 	if err != nil {
-		return nil, ErrUnableToMinify
+		return "", ErrUnableToMinify
 	}
 	return bs, nil
 }
