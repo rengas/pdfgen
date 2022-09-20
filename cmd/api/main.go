@@ -7,6 +7,7 @@ import (
 	"github.com/rengas/pdfgen/pkg/account"
 	"github.com/rengas/pdfgen/pkg/dbutils"
 	"github.com/rengas/pdfgen/pkg/design"
+	"github.com/rengas/pdfgen/pkg/minifier"
 	"github.com/rengas/pdfgen/pkg/server"
 	"github.com/rengas/pdfgen/pkg/service"
 	"log"
@@ -28,15 +29,20 @@ type DesignRepository interface {
 	Save(ctx context.Context, p design.Design) error
 }
 
+type Minifier interface {
+	HTML(b []byte) ([]byte, error)
+}
+
 func main() {
 	log.Println("starting api...")
 
 	db := dbutils.MustOpenPostgres(*connString)
 	profileRepo := account.NewProfileRepository(db)
 	designRepo := design.NewDesignRepository(db)
+	minify := minifier.NewMinifier()
 
 	profileAPI := NewProfileAPI(profileRepo)
-	designAPI := NewDesignAPI(designRepo)
+	designAPI := NewDesignAPI(designRepo, minify)
 
 	r := chi.NewRouter()
 	r.Get("/health", profileAPI.Health)

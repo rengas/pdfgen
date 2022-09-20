@@ -8,7 +8,7 @@ CREATE table profile(
 CREATE table design(
     id uuid PRIMARY KEY,
     name varchar(256),
-    fields json NOT NULL,
+    fields json DEFAULT NULL,
     profile_id uuid REFERENCES profile(id),
     template TEXT NOT NULL
 );

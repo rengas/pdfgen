@@ -11,6 +11,11 @@ require (
 )
 
 require (
+	github.com/tdewolff/minify v2.3.6+incompatible // indirect
+	github.com/tdewolff/parse v2.3.4+incompatible // indirect
+)
+
+require (
 	github.com/SebastiaanKlippert/go-wkhtmltopdf v1.7.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect

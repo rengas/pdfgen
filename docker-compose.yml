@@ -33,7 +33,7 @@ services:
       pg:
         condition: service_healthy
 
-  account:
+  api:
     build:
       context: .
       dockerfile: cmd/api/Dockerfile

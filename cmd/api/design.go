@@ -3,24 +3,27 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/rengas/pdfgen/pkg/design"
 	"github.com/rengas/pdfgen/pkg/httputils"
 	"html/template"
+	"reflect"
 
 	"net/http"
 )
 
 type DesignAPI struct {
 	designRepo DesignRepository
+	minfier    Minifier
 }
 
-func NewDesignAPI(designRepo DesignRepository) *DesignAPI {
+func NewDesignAPI(designRepo DesignRepository,
+	minifier Minifier) *DesignAPI {
 	return &DesignAPI{
 		designRepo: designRepo,
+		minfier:    minifier,
 	}
 }
 
@@ -30,67 +33,41 @@ type Field struct {
 }
 
 type CreateTemplateRequest struct {
-	Name      string                 `json:"name"`
-	ProfileId string                 `json:"profileId"`
-	Design    string                 `json:"design"`
-	Fields    map[string]interface{} `json:"fields"`
+	Name      string       `json:"name"`
+	ProfileId string       `json:"profileId"`
+	Design    string       `json:"design"`
+	Fields    design.Attrs `json:"fields"`
 }
 
-func (c CreateTemplateRequest) GetDesignModel() (design.Design, error) {
+func (c CreateTemplateRequest) Validate() error {
 
 	if c.Name == "" {
-		return design.Design{}, errors.New("name is empty")
+		return errors.New("name is empty")
 	}
 
 	if c.ProfileId == "" {
-		return design.Design{}, errors.New("profileId is empty")
-	}
-
-	if c.Fields == nil {
-		return design.Design{}, errors.New("fields are empty")
-	}
-
-	for k, v := range c.Fields {
-		switch v.(type) {
-		case string:
-		case float64:
-		case int:
-			continue
-		default:
-			return design.Design{}, errors.New(fmt.Sprintf("%s has unsupported type for value", k))
-		}
-	}
-
-	b, err := json.Marshal(c.Fields)
-	if err != nil {
-		return design.Design{}, errors.New("invalid fields structure")
+		return errors.New("profileId is empty")
 	}
 
 	if c.Design == "" {
-		return design.Design{}, errors.New("design is empty")
+		return errors.New("design is empty")
 	}
 
-	dt, err := base64.StdEncoding.DecodeString(c.Design)
-	if err != nil {
-		if _, ok := err.(base64.CorruptInputError); ok {
-			return design.Design{}, errors.New("invalid design")
+	if c.Fields != nil {
+		for k, v := range c.Fields {
+			v := reflect.ValueOf(v)
+			switch v.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
+				reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String, reflect.Slice,
+				reflect.Array, reflect.Map:
+				continue
+			default:
+				return errors.New(fmt.Sprintf("%s has unsupported type for value", k))
+			}
 		}
-		return design.Design{}, errors.New("design must be base64 encoded")
 	}
 
-	//validate if valid design
-	_, err = template.New(c.Name).Parse(string(dt))
-	if err != nil {
-		return design.Design{}, fmt.Errorf("invalid html design %w", err)
-	}
-
-	return design.Design{
-		Id:        uuid.NewString(),
-		ProfileId: c.ProfileId,
-		Name:      c.Name,
-		Template:  dt,
-		Fields:    b,
-	}, nil
+	return nil
 }
 
 func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
@@ -103,7 +80,7 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dm, err := t.GetDesignModel()
+	err = t.Validate()
 	if err != nil {
 		httputils.WriteJSON(w,
 			httputils.BadRequest(err.Error()),
@@ -111,7 +88,45 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = d.designRepo.Save(context.Background(), dm)
+	ds := design.Design{
+		Id:        uuid.NewString(),
+		ProfileId: t.ProfileId,
+		Name:      t.Name,
+		Fields:    nil,
+	}
+
+	dt, err := base64.StdEncoding.DecodeString(t.Design)
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("design must be base64 encoded"),
+			http.StatusBadRequest)
+		return
+	}
+
+	//validate if valid design
+	_, err = template.New(t.Name).Parse(string(dt))
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("invalid html design "),
+			http.StatusBadRequest)
+		return
+	}
+
+	mt, err := d.minfier.HTML(dt)
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.InternalError("unable to minifier template"),
+			http.StatusInternalServerError)
+		return
+	}
+
+	ds.Template = mt
+
+	if t.Fields != nil {
+		ds.Fields = &t.Fields
+	}
+
+	err = d.designRepo.Save(context.Background(), ds)
 	if err != nil {
 		httputils.WriteJSON(w,
 			httputils.InternalError("Unable to save profile"),
@@ -119,5 +134,5 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	httputils.WriteJSON(w, httputils.OKResponse{Id: dm.Id}, http.StatusOK)
+	httputils.WriteJSON(w, httputils.OKResponse{Id: ds.Id}, http.StatusOK)
 }
