@@ -78,7 +78,7 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if design.Fields != nil && t.Fields != nil {
+	if design.Fields != nil {
 		tl, err := template.New(design.Name).Parse(design.Template)
 		if err != nil {
 			httputils.WriteJSON(w,
@@ -89,7 +89,7 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 
 		var buf bytes.Buffer
 
-		err = tl.Execute(&buf, t.Fields)
+		err = tl.Execute(&buf, design.Fields)
 		if err != nil {
 			httputils.WriteJSON(w,
 				httputils.BadRequest("unable to match fields to design"),

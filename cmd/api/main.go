@@ -20,7 +20,7 @@ import (
 var (
 	addr            = flag.String("addr", ":8080", "Application http server network address")
 	shutdownTimeout = flag.Duration("shutdown-timeout", 30*time.Second, "Graceful shutdown timeout")
-	connString      = flag.String("pg-conn-string", "postgres://pdfgen:pdfgen@localhost:5432/pdfgen?sslmode=disable", "PostgresSQL server connection string")
+	connString      = flag.String("pg-conn-string", "postgres://pdfgen:pdfgen@pg:5432/pdfgen?sslmode=disable", "PostgresSQL server connection string")
 )
 
 type ProfileRepository interface {

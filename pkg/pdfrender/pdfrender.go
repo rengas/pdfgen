@@ -1,6 +1,7 @@
 package pdfrender
 
 import (
+	"fmt"
 	"github.com/SebastiaanKlippert/go-wkhtmltopdf"
 	"io"
 	"log"
@@ -25,11 +26,7 @@ func (p PDFRender) HTML(r io.Reader) ([]byte, error) {
 
 	// Create a new input page from an URL
 	page := wkhtmltopdf.NewPageReader(r)
-
-	// Set options for this page
-	page.FooterRight.Set("[page]")
-	page.FooterFontSize.Set(10)
-	page.Zoom.Set(0.95)
+	page.EnableLocalFileAccess.Set(true)
 
 	// Add to document
 	p.r.AddPage(page)
@@ -37,6 +34,7 @@ func (p PDFRender) HTML(r io.Reader) ([]byte, error) {
 	// Create PDF document in internal buffer
 	err := p.r.Create()
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 
