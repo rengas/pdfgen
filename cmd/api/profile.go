@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/rengas/pdfgen/pkg/account"
@@ -20,8 +21,26 @@ func NewProfileAPI(profileRepo ProfileRepository) *ProfileAPI {
 }
 
 type CreateProfileRequest struct {
-	Email        string `json:"email"`
-	MobileNumber string `json:"mobileNumber"`
+	Email      string `json:"email"`
+	Provider   string `json:"provider"`
+	FirebaseId string `json:"firebaseId"`
+}
+
+func (c CreateProfileRequest) Validate() error {
+
+	if c.Email == "" {
+		return errors.New("email is empty")
+	}
+
+	if c.Provider == "" {
+		return errors.New("provider is empty")
+	}
+
+	if c.FirebaseId == "" {
+		return errors.New("provider is empty")
+	}
+
+	return nil
 }
 
 func (p *ProfileAPI) CreateProfile(w http.ResponseWriter, req *http.Request) {
@@ -34,10 +53,20 @@ func (p *ProfileAPI) CreateProfile(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	acc := account.Profile{
-		Id:    uuid.NewString(),
-		Email: pr.Email,
+	if err = pr.Validate(); err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest(err.Error()),
+			http.StatusBadRequest)
+		return
 	}
+
+	acc := account.Profile{
+		Id:         uuid.NewString(),
+		Email:      pr.Email,
+		Provider:   pr.Provider,
+		FirebaseId: pr.FirebaseId,
+	}
+
 	err = p.profileRepo.Save(context.Background(), acc)
 	if err != nil {
 		httputils.WriteJSON(w,

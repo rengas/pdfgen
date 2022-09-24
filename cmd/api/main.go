@@ -1,18 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"github.com/go-chi/chi/v5"
 	"github.com/rengas/pdfgen/pkg/account"
 	"github.com/rengas/pdfgen/pkg/dbutils"
 	"github.com/rengas/pdfgen/pkg/design"
+	"github.com/rengas/pdfgen/pkg/firebase"
+	"github.com/rengas/pdfgen/pkg/middleware"
 	"github.com/rengas/pdfgen/pkg/minifier"
 	"github.com/rengas/pdfgen/pkg/pdfrender"
 	"github.com/rengas/pdfgen/pkg/server"
 	"github.com/rengas/pdfgen/pkg/service"
 	"io"
 	"log"
+	"os"
 	"syscall"
 	"time"
 )
@@ -41,8 +45,7 @@ type Renderer interface {
 }
 
 func main() {
-	log.Println("starting api...")
-
+	log.Println("initialising api...")
 	db := dbutils.MustOpenPostgres(*connString)
 	profileRepo := account.NewProfileRepository(db)
 	designRepo := design.NewDesignRepository(db)
@@ -53,12 +56,27 @@ func main() {
 	designAPI := NewDesignAPI(designRepo, minify)
 	generatorAPI := NewGeneratorAPI(designRepo, renderer)
 
-	r := chi.NewRouter()
-	r.Get("/health", profileAPI.Health)
-	r.Post("/profile", profileAPI.CreateProfile)
-	r.Post("/design", designAPI.CreateDesign)
-	r.Post("/generate", generatorAPI.GeneratePDF)
+	b, err := os.ReadFile("./firebase.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fAuth := firebase.New(bytes.NewBuffer(b))
 
+	log.Println("initialising routes...")
+	r := chi.NewRouter()
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.NewFirebaseAuth(fAuth).FirebaseAuth)
+		r.Post("/profile", profileAPI.CreateProfile)
+		r.Post("/design", designAPI.CreateDesign)
+		r.Post("/generate", generatorAPI.GeneratePDF)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Get("/health", profileAPI.Health)
+	})
+
+	log.Println("starting api...")
 	s := server.NewHTTPServer(*addr, r, *shutdownTimeout)
 	s.Start()
 
