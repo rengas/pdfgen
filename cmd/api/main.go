@@ -3,9 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"flag"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	m "github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/rengas/pdfgen/pkg/account"
 	"github.com/rengas/pdfgen/pkg/dbutils"
 	"github.com/rengas/pdfgen/pkg/design"
@@ -18,6 +24,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -26,6 +33,8 @@ var (
 	addr            = flag.String("addr", ":8080", "Application http server network address")
 	shutdownTimeout = flag.Duration("shutdown-timeout", 30*time.Second, "Graceful shutdown timeout")
 	connString      = flag.String("pg-conn-string", "postgres://pdfgen:pdfgen@localhost:5432/pdfgen?sslmode=disable", "PostgresSQL server connection string")
+	firebasePath    = flag.String("firebase-path", "./firebase.json", "firebase creds")
+	renderDBPath    = flag.String("render-db-path", "/etc/secrets/staging.json", "staging db creds")
 )
 
 type ProfileRepository interface {
@@ -51,7 +60,28 @@ type Renderer interface {
 }
 
 func main() {
+
 	log.Println("initialising api...")
+
+	//TODO Too much plumbing, see if there is a better way
+	if os.Getenv("env") == "staging" {
+		b, err := os.ReadFile(*renderDBPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var secrets map[string]string
+		err = json.Unmarshal(b, &secrets)
+		if err != nil {
+			log.Fatal(err)
+		}
+		v, ok := secrets["pg-conn-string"]
+		if !ok {
+			log.Fatal("unable to get pg-conn-string from environmet")
+		}
+		*connString = v
+		*firebasePath = "/etc/secrets/firebase.json"
+	}
+
 	db := dbutils.MustOpenPostgres(*connString)
 	profileRepo := account.NewProfileRepository(db)
 	designRepo := design.NewDesignRepository(db)
@@ -62,7 +92,7 @@ func main() {
 	designAPI := NewDesignAPI(designRepo, minify)
 	generatorAPI := NewGeneratorAPI(designRepo, renderer)
 
-	b, err := os.ReadFile("./firebase.json")
+	b, err := os.ReadFile(*firebasePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,6 +135,29 @@ func main() {
 
 	log.Println("starting api...")
 	s := server.NewHTTPServer(*addr, r, *shutdownTimeout)
+
+	if os.Getenv("env") == "staging" {
+		driver, err := postgres.WithInstance(db, &postgres.Config{})
+		if err != nil {
+			log.Fatal(err)
+		}
+		pth, err := filepath.Abs("./.")
+		if err != nil {
+			log.Fatal(err)
+		}
+		sourceUrl := fmt.Sprintf("file://%s%s", pth, "/migrations")
+		m, err := migrate.NewWithDatabaseInstance(
+			sourceUrl,
+			"postgres", driver)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = m.Up()
+		if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			log.Fatal(err)
+		}
+	}
+
 	s.Start()
 
 	sig := service.Wait(syscall.SIGTERM, syscall.SIGINT)

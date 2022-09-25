@@ -1,0 +1,3 @@
+{
+  "pg-conn-string": "postgres://pdfgen:pdfgen@localhost:5432/pdfgen?sslmode=disable"
+}
