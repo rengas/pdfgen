@@ -24,7 +24,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -141,11 +140,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		pth, err := filepath.Abs("./.")
-		if err != nil {
-			log.Fatal(err)
-		}
-		sourceUrl := fmt.Sprintf("file://%s%s", pth, "/migrations")
+
+		sourceUrl := fmt.Sprintf("file://%s", "migrations")
 		m, err := migrate.NewWithDatabaseInstance(
 			sourceUrl,
 			"postgres", driver)

@@ -16,6 +16,7 @@ FROM surnet/alpine-wkhtmltopdf:3.9-0.12.5-full
 
 WORKDIR /
 COPY --from=build /app/api /bin/
+COPY --from=build /app/api/migrations /bin/
 
 EXPOSE 8080
 
