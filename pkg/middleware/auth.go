@@ -49,3 +49,20 @@ func (a Auth) FirebaseAuth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+func (a Auth) FirebaseAuthWithout(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		header := r.Header.Get("Authorization")
+		idToken := strings.TrimSpace(strings.Replace(header, "Bearer", "", 1))
+		_, err := a.f.Verify(context.TODO(), idToken)
+		if err != nil {
+			//TODO What should be the header here?
+			log.Printf("%s", err.Error())
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}

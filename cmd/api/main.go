@@ -113,17 +113,16 @@ func main() {
 			})
 		})
 
-	})
-
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.NewFirebaseAuth(fAuth, profileRepo).FirebaseAuth)
-		r.Post("/profile", profileAPI.CreateProfile)
 		r.Get("/profile", profileAPI.GetProfile)
 		r.Post("/generate", generatorAPI.GeneratePDF)
 		r.Post("/validate", designAPI.ValidateDesign)
 
 	})
 
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.NewFirebaseAuth(fAuth, profileRepo).FirebaseAuthWithout)
+		r.Post("/profile", profileAPI.CreateProfile)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get("/health", profileAPI.Health)
 	})
