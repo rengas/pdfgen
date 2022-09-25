@@ -4,6 +4,7 @@ import (
 	"context"
 	"firebase.google.com/go/auth"
 	"github.com/rengas/pdfgen/pkg/account"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -35,6 +36,7 @@ func (a Auth) FirebaseAuth(next http.Handler) http.Handler {
 		token, err := a.f.Verify(context.TODO(), idToken)
 		if err != nil {
 			//TODO What should be the header here?
+			log.Printf("%s", err.Error())
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
