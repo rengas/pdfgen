@@ -2,6 +2,8 @@ package httputils
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/rengas/pdfgen/pkg/design"
 	"net/http"
 )
 
@@ -11,7 +13,8 @@ type ErrorResponse struct {
 }
 
 type OKResponse struct {
-	Id string `json:"id"`
+	Id  string `json:"id"`
+	Msg string `json:"msg"`
 }
 
 func BadRequest(msg string) ErrorResponse {
@@ -50,6 +53,19 @@ func WriteJSON(w http.ResponseWriter, v interface{}, statusCode int) error {
 func WriteFile(w http.ResponseWriter, b []byte, statusCode int) error {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.WriteHeader(statusCode)
+	w.Write(b)
+	return nil
+}
+
+func WritePaginatedJSON(w http.ResponseWriter, pagination design.Pagination, v interface{}, statusCode int) error {
+	w.Header().Add("count", fmt.Sprintf("%d", pagination.Page))
+	w.Header().Add("total", fmt.Sprintf("%d", pagination.Total))
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
 	w.Write(b)
 	return nil
 }

@@ -78,6 +78,24 @@ func (p *ProfileAPI) CreateProfile(w http.ResponseWriter, req *http.Request) {
 	httputils.WriteJSON(w, httputils.OKResponse{Id: acc.Id}, http.StatusOK)
 }
 
+func (p *ProfileAPI) GetProfile(w http.ResponseWriter, req *http.Request) {
+	profileId, ok := req.Context().Value("profileId").(string)
+	if !ok {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("profile not found"),
+			http.StatusBadRequest)
+	}
+
+	prof, err := p.profileRepo.GetById(context.TODO(), profileId)
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("Unable get profile data "),
+			http.StatusBadRequest)
+		return
+	}
+	httputils.WriteJSON(w, prof, http.StatusOK)
+}
+
 func (p *ProfileAPI) Health(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "I'm ok")
 }

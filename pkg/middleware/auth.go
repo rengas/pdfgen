@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 	"firebase.google.com/go/auth"
-	"fmt"
+	"github.com/rengas/pdfgen/pkg/account"
 	"net/http"
 	"strings"
 )
@@ -11,14 +11,19 @@ import (
 type FireBaseAuth interface {
 	Verify(ctx context.Context, idToken string) (*auth.Token, error)
 }
+type ProfileRepository interface {
+	GetByFirebaseId(ctx context.Context, id string) (account.Profile, error)
+}
 
 type Auth struct {
 	f FireBaseAuth
+	p ProfileRepository
 }
 
-func NewFirebaseAuth(f FireBaseAuth) *Auth {
+func NewFirebaseAuth(f FireBaseAuth, p ProfileRepository) *Auth {
 	return &Auth{
 		f: f,
+		p: p,
 	}
 }
 
@@ -27,13 +32,18 @@ func (a Auth) FirebaseAuth(next http.Handler) http.Handler {
 
 		header := r.Header.Get("Authorization")
 		idToken := strings.TrimSpace(strings.Replace(header, "Bearer", "", 1))
-		_, err := a.f.Verify(context.TODO(), idToken)
+		token, err := a.f.Verify(context.TODO(), idToken)
 		if err != nil {
 			//TODO What should be the header here?
-			w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, ""))
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r)
+		prof, err := a.p.GetByFirebaseId(context.TODO(), token.UID)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "profileId", prof.Id)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

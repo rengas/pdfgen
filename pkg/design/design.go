@@ -4,14 +4,18 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"time"
 )
 
 type Design struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	ProfileId string `json:"profileId"`
-	Fields    *Attrs `json:"fields"`
-	Template  string `json:"design"`
+	Id        string    `json:"id"`
+	Name      string    `json:"name"`
+	ProfileId string    `json:"profileId"`
+	Fields    *Attrs    `json:"fields"`
+	Template  string    `json:"design"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	DeletedAt time.Time `json:"deletedAt"`
 }
 
 type Attrs map[string]interface{}

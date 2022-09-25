@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"github.com/go-chi/chi/v5"
+	m "github.com/go-chi/chi/v5/middleware"
 	"github.com/rengas/pdfgen/pkg/account"
 	"github.com/rengas/pdfgen/pkg/dbutils"
 	"github.com/rengas/pdfgen/pkg/design"
@@ -24,16 +25,21 @@ import (
 var (
 	addr            = flag.String("addr", ":8080", "Application http server network address")
 	shutdownTimeout = flag.Duration("shutdown-timeout", 30*time.Second, "Graceful shutdown timeout")
-	connString      = flag.String("pg-conn-string", "postgres://pdfgen:pdfgen@pg:5432/pdfgen?sslmode=disable", "PostgresSQL server connection string")
+	connString      = flag.String("pg-conn-string", "postgres://pdfgen:pdfgen@localhost:5432/pdfgen?sslmode=disable", "PostgresSQL server connection string")
 )
 
 type ProfileRepository interface {
 	Save(ctx context.Context, p account.Profile) error
+	GetById(ctx context.Context, id string) (account.Profile, error)
 }
 
 type DesignRepository interface {
 	Save(ctx context.Context, d design.Design) error
-	GetByID(ctx context.Context, id string) (design.Design, error)
+	GetById(ctx context.Context, id string) (design.Design, error)
+	Update(ctx context.Context, p design.Design) error
+	Delete(ctx context.Context, id string) error
+	ListByProfileId(ctx context.Context, lq design.ListQuery) ([]design.Design, design.Pagination, error)
+	Search(ctx context.Context, lq design.ListQuery) ([]design.Design, design.Pagination, error)
 }
 
 type Minifier interface {
@@ -64,12 +70,31 @@ func main() {
 
 	log.Println("initialising routes...")
 	r := chi.NewRouter()
+	r.Use(m.RequestID)
 
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.NewFirebaseAuth(fAuth).FirebaseAuth)
+		r.Use(middleware.NewFirebaseAuth(fAuth, profileRepo).FirebaseAuth)
+		r.Use(m.Logger)
+
+		r.Route("/design", func(r chi.Router) {
+			r.Post("/", designAPI.CreateDesign)
+			r.Get("/", designAPI.ListDesign)
+
+			r.Route("/{designId}", func(r chi.Router) {
+				r.Get("/", designAPI.GetDesign)
+				r.Put("/", designAPI.UpdateDesign)
+				r.Delete("/", designAPI.DeleteDesign)
+			})
+		})
+
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.NewFirebaseAuth(fAuth, profileRepo).FirebaseAuth)
 		r.Post("/profile", profileAPI.CreateProfile)
-		r.Post("/design", designAPI.CreateDesign)
+		r.Get("/profile", profileAPI.GetProfile)
 		r.Post("/generate", generatorAPI.GeneratePDF)
+
 	})
 
 	r.Group(func(r chi.Router) {

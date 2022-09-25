@@ -70,7 +70,7 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	design, err := d.designRepo.GetByID(context.TODO(), t.DesignId)
+	design, err := d.designRepo.GetById(context.TODO(), t.DesignId)
 	if err != nil {
 		httputils.WriteJSON(w,
 			httputils.BadRequest("unable to get design "),
