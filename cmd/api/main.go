@@ -77,6 +77,7 @@ func main() {
 		r.Use(m.Logger)
 
 		r.Route("/design", func(r chi.Router) {
+
 			r.Post("/", designAPI.CreateDesign)
 			r.Get("/", designAPI.ListDesign)
 
@@ -94,6 +95,7 @@ func main() {
 		r.Post("/profile", profileAPI.CreateProfile)
 		r.Get("/profile", profileAPI.GetProfile)
 		r.Post("/generate", generatorAPI.GeneratePDF)
+		r.Post("/validate", designAPI.ValidateDesign)
 
 	})
 

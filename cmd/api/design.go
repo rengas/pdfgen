@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -75,6 +76,15 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 			http.StatusBadRequest)
 		return
 	}
+
+	profileId, ok := req.Context().Value("profileId").(string)
+	if !ok {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("profileId is missing"),
+			http.StatusUnauthorized)
+		return
+	}
+	t.ProfileId = profileId
 
 	err = t.Validate()
 	if err != nil {
@@ -342,4 +352,97 @@ func (d *DesignAPI) DeleteDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	httputils.WriteJSON(w, httputils.OKResponse{Msg: "design was deleted"}, http.StatusOK)
+}
+
+type ValidateTemplateRequest struct {
+	Name   string       `json:"name"`
+	Design string       `json:"design"`
+	Fields design.Attrs `json:"fields"`
+}
+
+func (c ValidateTemplateRequest) Validate() error {
+
+	if c.Name == "" {
+		return errors.New("name is empty")
+	}
+
+	if c.Design == "" {
+		return errors.New("design is empty")
+	}
+
+	if c.Fields != nil {
+		for k, v := range c.Fields {
+			v := reflect.ValueOf(v)
+			switch v.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
+				reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String, reflect.Slice,
+				reflect.Array, reflect.Map:
+				continue
+			default:
+				return errors.New(fmt.Sprintf("%s has unsupported type for value", k))
+			}
+		}
+	}
+
+	return nil
+}
+
+func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
+
+	var t ValidateTemplateRequest
+	err := httputils.ReadJson(req, &t)
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest(err.Error()),
+			http.StatusBadRequest)
+		return
+	}
+
+	err = t.Validate()
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest(err.Error()),
+			http.StatusBadRequest)
+		return
+	}
+
+	dt, err := base64.StdEncoding.DecodeString(t.Design)
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("design must be base64 encoded"),
+			http.StatusBadRequest)
+		return
+	}
+
+	ws := string(dt)
+	//validate if valid design
+	_, err = template.New(t.Name).Parse(ws)
+	if err != nil {
+		httputils.WriteJSON(w,
+			httputils.BadRequest("invalid html design "),
+			http.StatusBadRequest)
+		return
+	}
+
+	if t.Fields != nil {
+		tl, err := template.New(t.Name).Parse(t.Design)
+		if err != nil {
+			httputils.WriteJSON(w,
+				httputils.BadRequest("unable to parse template"),
+				http.StatusBadRequest)
+			return
+		}
+
+		var buf bytes.Buffer
+
+		err = tl.Execute(&buf, t.Fields)
+		if err != nil {
+			httputils.WriteJSON(w,
+				httputils.BadRequest("unable to match fields to design"),
+				http.StatusBadRequest)
+			return
+		}
+
+	}
+	httputils.WriteJSON(w, httputils.OKResponse{Msg: "design is valid"}, http.StatusOK)
 }
