@@ -7,7 +7,6 @@ RUN go mod download
 
 COPY pkg pkg
 COPY cmd/api cmd/api
-COPY cmd/api/migrations  migrations
 
 RUN go build -o api ./cmd/api/
 
@@ -17,7 +16,6 @@ FROM surnet/alpine-wkhtmltopdf:3.9-0.12.5-full
 
 WORKDIR /
 COPY --from=build /app/api /bin/
-COPY --from=build /app/migrations /bin/
 
 EXPOSE 8080
 

@@ -4,13 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	m "github.com/go-chi/chi/v5/middleware"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/rengas/pdfgen/pkg/account"
 	"github.com/rengas/pdfgen/pkg/dbutils"
@@ -135,7 +131,8 @@ func main() {
 	log.Println("starting api...")
 	s := server.NewHTTPServer(*addr, r, *shutdownTimeout)
 
-	if os.Getenv("env") == "staging" {
+	//TODO need to find a way to put this back and remove migrate from docker-compose
+	/*if os.Getenv("env") == "staging" {
 		driver, err := postgres.WithInstance(db, &postgres.Config{})
 		if err != nil {
 			log.Fatal(err)
@@ -152,7 +149,7 @@ func main() {
 		if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 			log.Fatal(err)
 		}
-	}
+	}*/
 
 	s.Start()
 
