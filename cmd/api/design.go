@@ -71,26 +71,20 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 	var t CreateTemplateRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
 		return
 	}
 
 	profileId, ok := req.Context().Value("profileId").(string)
 	if !ok {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("profileId is missing"),
-			http.StatusUnauthorized)
+		httputils.BadRequest(context.TODO(), w, errors.New("profileId is missing"))
 		return
 	}
 	t.ProfileId = profileId
 
 	err = t.Validate()
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, err)
 		return
 	}
 
@@ -103,9 +97,7 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 
 	dt, err := base64.StdEncoding.DecodeString(t.Design)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("design must be base64 encoded"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("design must be base64 encoded"))
 		return
 	}
 
@@ -113,17 +105,13 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 	//validate if valid design
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("invalid html design "),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("invalid html design"))
 		return
 	}
 
 	mt, err := d.minfier.HTML(ws)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("unable to minifier template"),
-			http.StatusInternalServerError)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to minify template"))
 		return
 	}
 
@@ -135,13 +123,11 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 
 	err = d.designRepo.Save(context.Background(), ds)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("Unable to update design"),
-			http.StatusInternalServerError)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to update design"))
 		return
 	}
 
-	httputils.WriteJSON(w, httputils.OKResponse{Id: ds.Id}, http.StatusOK)
+	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: ds.Id})
 }
 
 type UpdateTemplateRequest struct {
@@ -180,25 +166,22 @@ func (c UpdateTemplateRequest) Validate() error {
 func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 	designId := chi.URLParam(req, "designId")
 	if designId == "" {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("designId is empty"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+		return
 	}
 
 	var t UpdateTemplateRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request body"))
+
 		return
 	}
 
 	err = t.Validate()
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, err)
+
 		return
 	}
 
@@ -210,9 +193,8 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 
 	dt, err := base64.StdEncoding.DecodeString(t.Design)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("design must be base64 encoded"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("design must be base64 encoded"))
+
 		return
 	}
 
@@ -220,17 +202,15 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 	//validate if valid design
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("invalid html design"),
-			http.StatusBadRequest)
+
+		httputils.BadRequest(context.TODO(), w, errors.New("invalid html design"))
 		return
 	}
 
 	mt, err := d.minfier.HTML(ws)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("unable to minifier template"),
-			http.StatusInternalServerError)
+		httputils.InternalServerError(context.TODO(), w, errors.New("unable to minify template"))
+
 		return
 	}
 
@@ -242,69 +222,59 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 
 	err = d.designRepo.Update(context.Background(), ds)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("Unable to update design"),
-			http.StatusInternalServerError)
+		httputils.InternalServerError(context.TODO(), w, errors.New("unable to update design"))
 		return
 	}
 
-	httputils.WriteJSON(w, httputils.OKResponse{Id: ds.Id}, http.StatusOK)
+	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: ds.Id})
 }
 
 func (d *DesignAPI) GetDesign(w http.ResponseWriter, req *http.Request) {
 	designId := chi.URLParam(req, "designId")
 	if designId == "" {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("designId is empty"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+		return
 	}
 
 	ds, err := d.designRepo.GetById(context.TODO(), designId)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("Unable to get design by id"),
-			http.StatusInternalServerError)
+
+		httputils.InternalServerError(context.TODO(), w, errors.New("unable to get design by id"))
 		return
 	}
-
-	httputils.WriteJSON(w, ds, http.StatusOK)
+	httputils.OK(context.TODO(), w, ds)
 }
 
 func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 
 	profileId, ok := req.Context().Value("profileId").(string)
 	if !ok {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("profileId is empty"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("profileId is empty"))
+		return
 	}
 
 	count := req.URL.Query().Get("count")
 	if count == "" {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("count is empty"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("count is empty"))
+		return
 	}
 
 	c, err := strconv.ParseInt(count, 10, 64)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("invalid count"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("invalid count"))
+		return
 	}
 
 	page := req.URL.Query().Get("page")
 	if page == "" {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("page is empty"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("page is empty"))
+		return
 	}
 
 	p, err := strconv.ParseInt(page, 10, 64)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("invalid page"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("invalid page"))
+		return
 	}
 
 	q := req.URL.Query().Get("search")
@@ -325,9 +295,8 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("unable to get List of designs"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to get designs"))
+		return
 	}
 
 	httputils.WritePaginatedJSON(w,
@@ -339,19 +308,17 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 func (d *DesignAPI) DeleteDesign(w http.ResponseWriter, req *http.Request) {
 	designId := chi.URLParam(req, "designId")
 	if designId == "" {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("designId is empty"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+		return
 	}
 
 	err := d.designRepo.Delete(context.TODO(), designId)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("Unable to get design by id"),
-			http.StatusInternalServerError)
+		httputils.InternalServerError(context.TODO(), w, errors.New("Unable to get design by id"))
 		return
 	}
-	httputils.WriteJSON(w, httputils.OKResponse{Msg: "design was deleted"}, http.StatusOK)
+	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: designId})
+
 }
 
 type ValidateTemplateRequest struct {
@@ -392,25 +359,19 @@ func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 	var t ValidateTemplateRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
 		return
 	}
 
 	err = t.Validate()
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, err)
 		return
 	}
 
 	dt, err := base64.StdEncoding.DecodeString(t.Design)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("design must be base64 encoded"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("design must be base64 encoded"))
 		return
 	}
 
@@ -418,18 +379,14 @@ func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 	//validate if valid design
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("invalid html design "),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("invalid html design"))
 		return
 	}
 
 	if t.Fields != nil {
 		tl, err := template.New(t.Name).Parse(t.Design)
 		if err != nil {
-			httputils.WriteJSON(w,
-				httputils.BadRequest("unable to parse template"),
-				http.StatusBadRequest)
+			httputils.BadRequest(context.TODO(), w, errors.New("unable to parse template"))
 			return
 		}
 
@@ -437,12 +394,10 @@ func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 
 		err = tl.Execute(&buf, t.Fields)
 		if err != nil {
-			httputils.WriteJSON(w,
-				httputils.BadRequest("unable to match fields to design"),
-				http.StatusBadRequest)
+			httputils.BadRequest(context.TODO(), w, errors.New("unable to match fields to design"))
 			return
 		}
 
 	}
-	httputils.WriteJSON(w, httputils.OKResponse{Msg: "design is valid"}, http.StatusOK)
+	httputils.OK(context.TODO(), w, httputils.OkResponse{Message: "design is good to go"})
 }

@@ -12,6 +12,7 @@ import (
 type FireBaseAuth interface {
 	Verify(ctx context.Context, idToken string) (*auth.Token, error)
 }
+
 type ProfileRepository interface {
 	GetByFirebaseId(ctx context.Context, id string) (account.Profile, error)
 }

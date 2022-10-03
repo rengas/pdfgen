@@ -47,16 +47,12 @@ func (p *ProfileAPI) CreateProfile(w http.ResponseWriter, req *http.Request) {
 	var pr CreateProfileRequest
 	err := httputils.ReadJson(req, &pr)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("Unable to read request"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
 		return
 	}
 
 	if err = pr.Validate(); err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, err)
 		return
 	}
 
@@ -69,31 +65,27 @@ func (p *ProfileAPI) CreateProfile(w http.ResponseWriter, req *http.Request) {
 
 	err = p.profileRepo.Save(context.Background(), acc)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.InternalError("Unable to save profile"),
-			http.StatusInternalServerError)
+		httputils.InternalServerError(context.TODO(), w, errors.New("unable to save profile"))
+
 		return
 	}
-
-	httputils.WriteJSON(w, httputils.OKResponse{Id: acc.Id}, http.StatusOK)
+	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: acc.Id})
 }
 
 func (p *ProfileAPI) GetProfile(w http.ResponseWriter, req *http.Request) {
 	profileId, ok := req.Context().Value("profileId").(string)
 	if !ok {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("profile not found"),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("profile not found"))
+		return
 	}
 
 	prof, err := p.profileRepo.GetById(context.TODO(), profileId)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("Unable get profile data "),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable get profile data "))
+
 		return
 	}
-	httputils.WriteJSON(w, prof, http.StatusOK)
+	httputils.OK(context.TODO(), w, prof)
 }
 
 func (p *ProfileAPI) Health(w http.ResponseWriter, req *http.Request) {

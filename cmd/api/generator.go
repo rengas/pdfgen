@@ -56,34 +56,26 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 	var t GeneratePDFRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
 		return
 	}
 
 	err = t.Validate()
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest(err.Error()),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, err)
 		return
 	}
 
 	design, err := d.designRepo.GetById(context.TODO(), t.DesignId)
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("unable to get design "),
-			http.StatusBadRequest)
+		httputils.BadRequest(context.TODO(), w, errors.New("unable to get design"))
 		return
 	}
 
 	if design.Fields != nil {
 		tl, err := template.New(design.Name).Parse(design.Template)
 		if err != nil {
-			httputils.WriteJSON(w,
-				httputils.BadRequest("unable to parse template"),
-				http.StatusBadRequest)
+			httputils.BadRequest(context.TODO(), w, errors.New("unable to parse template"))
 			return
 		}
 
@@ -91,17 +83,14 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 
 		err = tl.Execute(&buf, design.Fields)
 		if err != nil {
-			httputils.WriteJSON(w,
-				httputils.BadRequest("unable to match fields to design"),
-				http.StatusBadRequest)
+			httputils.BadRequest(context.TODO(), w, errors.New("unable to match fields to design"))
 			return
 		}
 
 		pb, err := d.renderer.HTML(&buf)
 		if err != nil {
-			httputils.WriteJSON(w,
-				httputils.BadRequest("unable to renderer pdf"),
-				http.StatusBadRequest)
+			httputils.BadRequest(context.TODO(), w, errors.New("unable to renderer pdf"))
+			return
 		}
 
 		httputils.WriteFile(w,
@@ -112,9 +101,8 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 
 	pb, err := d.renderer.HTML(strings.NewReader(design.Template))
 	if err != nil {
-		httputils.WriteJSON(w,
-			httputils.BadRequest("unable to renderer pdf"),
-			http.StatusBadRequest)
+		httputils.InternalServerError(context.TODO(), w, errors.New("unable to renderer pdf"))
+		return
 	}
 
 	httputils.WriteFile(w,
