@@ -32,7 +32,7 @@ func NewUserAPI(userRepo UserRepository) *UserAPI {
 // @Failure      404  {object}  httputils.ErrorResponse  "Not Found"
 // @Failure      500  {object}  httputils.ErrorResponse  "Internal Server Error"
 // @Security     BearerAuth
-// @Router       /user/me [get]
+// @Router       /user [get]
 func (u *UserAPI) GetUser(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	userId, ok := ctx.Value("userId").(string)
@@ -91,7 +91,7 @@ func (u UpdateUserRequest) GetUser() user.User {
 // @Failure      422   {object}  httputils.ErrorResponse   "Validation errors"
 // @Failure      500   {object}  httputils.ErrorResponse   "Internal Server Error"
 // @Security     BearerAuth
-// @Router       /users/me [patch]
+// @Router       /user [patch]
 func (u *UserAPI) UpdateUser(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	userId, ok := ctx.Value("userId").(string)

@@ -245,7 +245,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
-      summary: ListDesign
+      summary: List Design
       tags:
       - Design
     post:
@@ -278,7 +278,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
-      summary: CreateDesign
+      summary: Create Design
       tags:
       - Design
   /design/{designId}:
@@ -311,7 +311,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
-      summary: DeleteDesign
+      summary: Delete Design
       tags:
       - Design
     get:
@@ -343,7 +343,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
-      summary: GetDesign
+      summary: Get Design
       tags:
       - Design
     put:
@@ -381,7 +381,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
-      summary: UpdateDesign
+      summary: Update Design
       tags:
       - Design
   /design/generate:
@@ -445,7 +445,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
-      summary: ValidateDesign
+      summary: Validate Design
       tags:
       - Design
   /login:
@@ -516,7 +516,7 @@ paths:
       summary: Register
       tags:
       - Auth
-  /user/me:
+  /user:
     get:
       consumes:
       - application/json
@@ -549,7 +549,6 @@ paths:
       summary: Get User Profile
       tags:
       - User
-  /users/me:
     patch:
       consumes:
       - application/json
