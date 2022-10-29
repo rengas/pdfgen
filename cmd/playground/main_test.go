@@ -2,7 +2,6 @@ package playground_test
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	"testing"
 )
@@ -46,8 +45,6 @@ func TestTemplate(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println(b.String())
 
 }
 
@@ -314,7 +311,5 @@ func TestTemplate2(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println(b.String())
 
 }

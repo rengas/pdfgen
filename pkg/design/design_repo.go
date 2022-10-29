@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/rengas/pdfgen/pkg/pagination"
 	"time"
 )
 
@@ -20,9 +21,9 @@ func NewDesignRepository(db *sql.DB) *DesignRepository {
 }
 
 func (r *DesignRepository) Save(ctx context.Context, p Design) error {
-	_, err := r.db.ExecContext(ctx, "INSERT INTO design(id, profile_id, name, fields, template ) values($1, $2, $3, $4, $5)",
+	_, err := r.db.ExecContext(ctx, "INSERT INTO design(id, user_id, name, fields, template ) values($1, $2, $3, $4, $5)",
 		p.Id,
-		p.ProfileId,
+		p.UserId,
 		p.Name,
 		p.Fields,
 		p.Template)
@@ -35,8 +36,8 @@ func (r *DesignRepository) Save(ctx context.Context, p Design) error {
 
 func (r *DesignRepository) GetById(ctx context.Context, id string) (Design, error) {
 	var d Design
-	err := r.db.QueryRowContext(ctx, "SELECT id,name,profile_id, fields, template FROM design WHERE id = $1", id).
-		Scan(&d.Id, &d.Name, &d.ProfileId, &d.Fields, &d.Template)
+	err := r.db.QueryRowContext(ctx, "SELECT id,name,user_id, fields, template FROM design WHERE id = $1 and deleted_at is NULL", id).
+		Scan(&d.Id, &d.Name, &d.UserId, &d.Fields, &d.Template)
 	if err != nil {
 		return Design{}, err
 	}
@@ -71,30 +72,25 @@ func (r *DesignRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-type Pagination struct {
-	Total int64
-	Page  int64
-}
-
 type ListQuery struct {
-	Query     string
-	ProfileId string
-	Limit     int64
-	Page      int64
+	Query  string
+	UserId string
+	Limit  int64
+	Page   int64
 }
 
-func (r *DesignRepository) ListByProfileId(ctx context.Context, lq ListQuery) ([]Design, Pagination, error) {
-	query := `SELECT id, name, profile_id, fields, template, created_at, updated_at 
+func (r *DesignRepository) ListByUserId(ctx context.Context, lq ListQuery) ([]Design, pagination.Pagination, error) {
+	query := `SELECT id, name, user_id, fields, template, created_at, updated_at 
 			FROM design 
-			WHERE profile_id = $1
+			WHERE user_id = $1 and deleted_at is NULL
 			Limit $2 Offset $3`
 
 	var rows *sql.Rows
 	var err error
 	offset := lq.Limit * (lq.Page - 1)
-	rows, err = r.db.QueryContext(ctx, query, lq.ProfileId, lq.Limit, offset)
+	rows, err = r.db.QueryContext(ctx, query, lq.UserId, lq.Limit, offset)
 	if err != nil {
-		return nil, Pagination{}, err
+		return nil, pagination.Pagination{}, err
 	}
 	defer rows.Close()
 
@@ -102,42 +98,43 @@ func (r *DesignRepository) ListByProfileId(ctx context.Context, lq ListQuery) ([
 	for rows.Next() {
 		d := new(Design)
 		// works but I don't think it is good code for too many columns
-		err = rows.Scan(&d.Id, &d.Name, &d.ProfileId, &d.Fields, &d.Template, &d.CreatedAt, &d.UpdatedAt)
+		err = rows.Scan(&d.Id, &d.Name, &d.UserId, &d.Fields, &d.Template, &d.CreatedAt, &d.UpdatedAt)
 		if err != nil {
-			return nil, Pagination{}, err
+			return nil, pagination.Pagination{}, err
 		}
 		ds = append(ds, *d)
 	}
 
 	qCount := `SELECT count(id)
 	FROM design
-	WHERE profile_id = $1`
+	WHERE user_id = $1 and deleted_at is NULL`
 
 	var count int64
-	err = r.db.QueryRowContext(ctx, qCount, lq.ProfileId).Scan(&count)
+	err = r.db.QueryRowContext(ctx, qCount, lq.UserId).Scan(&count)
 	if err != nil {
-		return nil, Pagination{}, err
+		return nil, pagination.Pagination{}, err
 	}
 
-	return ds, Pagination{
+	return ds, pagination.Pagination{
 		Page:  lq.Page,
 		Total: count,
 	}, nil
 }
 
-func (r *DesignRepository) Search(ctx context.Context, lq ListQuery) ([]Design, Pagination, error) {
-	query := `SELECT id, name, profile_id, fields, template, created_at, updated_at
+func (r *DesignRepository) Search(ctx context.Context, lq ListQuery) ([]Design, pagination.Pagination, error) {
+	query := `SELECT id, name, user_id, fields, template, created_at, updated_at
 			FROM design
-			WHERE profile_id = $1
+			WHERE user_id = $1
+			and  deleted_at is NULL
 			and LOWER(name) LIKE '%' || $2 || '%'
 			Limit $3 Offset $4`
 
 	var rows *sql.Rows
 	var err error
 	offset := lq.Limit * (lq.Page - 1)
-	rows, err = r.db.QueryContext(ctx, query, lq.ProfileId, lq.Query, lq.Limit, offset)
+	rows, err = r.db.QueryContext(ctx, query, lq.UserId, lq.Query, lq.Limit, offset)
 	if err != nil {
-		return nil, Pagination{}, err
+		return nil, pagination.Pagination{}, err
 	}
 	defer rows.Close()
 
@@ -145,24 +142,26 @@ func (r *DesignRepository) Search(ctx context.Context, lq ListQuery) ([]Design, 
 	for rows.Next() {
 		d := new(Design)
 		// works but I don't think it is good code for too many columns
-		err = rows.Scan(&d.Id, &d.Name, &d.ProfileId, &d.Fields, &d.Template, &d.CreatedAt, &d.UpdatedAt)
+		err = rows.Scan(&d.Id, &d.Name, &d.UserId, &d.Fields, &d.Template, &d.CreatedAt, &d.UpdatedAt)
 		if err != nil {
-			return nil, Pagination{}, err
+			return nil, pagination.Pagination{}, err
 		}
 		ds = append(ds, *d)
 	}
 
 	qCount := `SELECT count(id)
 	FROM design
-	WHERE profile_id = $1
+	WHERE user_id = $1
+	and  deleted_at is NULL
+	and LOWER(name) LIKE '%' || $2 || '%'
 	AND name like '%$2'`
 
 	var count int64
-	err = r.db.QueryRowContext(ctx, qCount, lq.ProfileId, lq.Query).Scan(&count)
+	err = r.db.QueryRowContext(ctx, qCount, lq.UserId, lq.Query).Scan(&count)
 	if err != nil {
-		return nil, Pagination{}, err
+		return nil, pagination.Pagination{}, err
 	}
-	return ds, Pagination{
+	return ds, pagination.Pagination{
 		Page:  lq.Page,
 		Total: count,
 	}, nil
