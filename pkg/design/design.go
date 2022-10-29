@@ -10,7 +10,7 @@ import (
 type Design struct {
 	Id        string    `json:"id"`
 	Name      string    `json:"name"`
-	ProfileId string    `json:"profileId"`
+	UserId    string    `json:"userId"`
 	Fields    *Attrs    `json:"fields"`
 	Template  string    `json:"design"`
 	CreatedAt time.Time `json:"createdAt"`

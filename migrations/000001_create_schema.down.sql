@@ -1,2 +1,2 @@
-DROP table profile;
+DROP table users;
 DROP table design;

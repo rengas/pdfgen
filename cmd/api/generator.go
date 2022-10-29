@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
-	"github.com/rengas/pdfgen/pkg/design"
 	"github.com/rengas/pdfgen/pkg/httputils"
 	"html/template"
 	"net/http"
-	"reflect"
 	"strings"
 )
 
@@ -25,33 +22,17 @@ func NewGeneratorAPI(designRepo DesignRepository, renderer Renderer) *GeneratorA
 	}
 }
 
-type GeneratePDFRequest struct {
-	DesignId string       `json:"DesignId"`
-	Fields   design.Attrs `json:"fields"`
-}
-
-func (g GeneratePDFRequest) Validate() error {
-	if g.DesignId == "" {
-		return errors.New("designId is empty")
-	}
-
-	if g.Fields != nil {
-		for k, v := range g.Fields {
-			v := reflect.ValueOf(v)
-			switch v.Kind() {
-			case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
-				reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String, reflect.Slice,
-				reflect.Array, reflect.Map:
-				continue
-			default:
-				return errors.New(fmt.Sprintf("%s has unsupported type for value", k))
-			}
-		}
-	}
-
-	return nil
-}
-
+// GeneratePDF func for updating new design.
+// @Description  Generate a pdf
+// @Summary      GeneratePDF
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Param        GeneratePDFRequest body  GeneratePDFRequest  true  "register details"
+// @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
+// @Router       /design/generate [post]
 func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 	var t GeneratePDFRequest
 	err := httputils.ReadJson(req, &t)

@@ -1,0 +1,601 @@
+definitions:
+  design.Attrs:
+    additionalProperties: true
+    type: object
+  design.Design:
+    properties:
+      createdAt:
+        type: string
+      deletedAt:
+        type: string
+      design:
+        type: string
+      fields:
+        $ref: '#/definitions/design.Attrs'
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  httputils.ErrorResponse:
+    properties:
+      error: {}
+    type: object
+  main.CreateDesignRequest:
+    properties:
+      design:
+        type: string
+      fields:
+        $ref: '#/definitions/design.Attrs'
+      name:
+        type: string
+      userId:
+        type: string
+    type: object
+  main.CreateDesignResponse:
+    properties:
+      id:
+        example: 99d15987-e06f-492c-a520-e54185e5b80b
+        type: string
+    type: object
+  main.DeleteDesignResponse:
+    properties:
+      id:
+        example: 99d15987-e06f-492c-a520-e54185e5b80b
+        type: string
+    type: object
+  main.GeneratePDFRequest:
+    properties:
+      DesignId:
+        type: string
+      fields:
+        $ref: '#/definitions/design.Attrs'
+    type: object
+  main.GetDesignResponse:
+    properties:
+      createdAt:
+        type: string
+      deletedAt:
+        type: string
+      design:
+        type: string
+      fields:
+        $ref: '#/definitions/design.Attrs'
+      id:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  main.GetUserResponse:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      firstName:
+        type: string
+      id:
+        type: string
+      lastName:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  main.ListDesignResponse:
+    properties:
+      designs:
+        items:
+          $ref: '#/definitions/design.Design'
+        type: array
+      pagination:
+        $ref: '#/definitions/pagination.Pagination'
+    type: object
+  main.LoginRequest:
+    properties:
+      email:
+        example: John@email.com
+        type: string
+      password:
+        example: your password
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  main.LoginResponse:
+    properties:
+      accessToken:
+        example: JWT token format
+        type: string
+      refreshToken:
+        example: JWT token format
+        type: string
+      user:
+        $ref: '#/definitions/main.User'
+    type: object
+  main.RegisterRequest:
+    properties:
+      email:
+        example: John@email.com
+        type: string
+      password:
+        example: random_string
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  main.RegisterResponse:
+    properties:
+      id:
+        example: 99d15987-e06f-492c-a520-e54185e5b80b
+        type: string
+    type: object
+  main.UpdateDesignRequest:
+    properties:
+      design:
+        type: string
+      fields:
+        $ref: '#/definitions/design.Attrs'
+      name:
+        type: string
+    type: object
+  main.UpdateDesignResponse:
+    properties:
+      id:
+        example: 99d15987-e06f-492c-a520-e54185e5b80b
+        type: string
+    type: object
+  main.UpdateUserRequest:
+    properties:
+      email:
+        example: John.doe@email.com
+        type: string
+      firstName:
+        example: John
+        type: string
+      lastName:
+        example: Doe
+        type: string
+    required:
+    - email
+    type: object
+  main.UpdateUserResponse:
+    properties:
+      email:
+        type: string
+      firstName:
+        type: string
+      id:
+        type: string
+      lastName:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  main.User:
+    properties:
+      email:
+        example: John@email.com
+        type: string
+      id:
+        example: 99d15987-e06f-492c-a520-e54185e5b80b
+        type: string
+    type: object
+  main.ValidateDesignRequest:
+    properties:
+      design:
+        type: string
+      fields:
+        $ref: '#/definitions/design.Attrs'
+      name:
+        type: string
+    type: object
+  main.ValidateDesignResponse:
+    properties:
+      id:
+        example: 99d15987-e06f-492c-a520-e54185e5b80b
+        type: string
+    type: object
+  pagination.Pagination:
+    properties:
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+info:
+  contact:
+    email: dev@pdfgen.pro
+    name: dev
+  description: API
+  title: Pdfgen.pro API
+  version: "1.0"
+paths:
+  /design:
+    get:
+      consumes:
+      - application/json
+      description: List Designs.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.ListDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: ListDesign
+      tags:
+      - Design
+    post:
+      consumes:
+      - application/json
+      description: Create a new Design.
+      parameters:
+      - description: register details
+        in: body
+        name: CreateDesignRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateDesignRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.CreateDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: CreateDesign
+      tags:
+      - Design
+  /design/{designId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a Design.
+      parameters:
+      - description: design id
+        in: path
+        name: designId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.DeleteDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: DeleteDesign
+      tags:
+      - Design
+    get:
+      consumes:
+      - application/json
+      description: Get a Design.
+      parameters:
+      - description: design id
+        in: path
+        name: designId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.GetDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: GetDesign
+      tags:
+      - Design
+    put:
+      consumes:
+      - application/json
+      description: Update a Design.
+      parameters:
+      - description: design id
+        in: path
+        name: designId
+        required: true
+        type: string
+      - description: register details
+        in: body
+        name: UpdateDesignRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.UpdateDesignRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.UpdateDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: UpdateDesign
+      tags:
+      - Design
+  /design/generate:
+    post:
+      consumes:
+      - application/json
+      description: Generate a pdf
+      parameters:
+      - description: register details
+        in: body
+        name: GeneratePDFRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.GeneratePDFRequest'
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: GeneratePDF
+      tags:
+      - Design
+  /design/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate a Design.
+      parameters:
+      - description: register details
+        in: body
+        name: ValidateDesignRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.ValidateDesignRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.ValidateDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: ValidateDesign
+      tags:
+      - Design
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Login as a user.
+      parameters:
+      - description: Credentials
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/main.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User account and token pair
+          schema:
+            $ref: '#/definitions/main.LoginResponse'
+        "400":
+          description: "\t\t \"Bad Request"
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: Login
+      tags:
+      - Auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user.
+      parameters:
+      - description: register details
+        in: body
+        name: register_details
+        required: true
+        schema:
+          $ref: '#/definitions/main.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: Register
+      tags:
+      - Auth
+  /user/me:
+    get:
+      consumes:
+      - application/json
+      description: Get User Profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.GetUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get User Profile
+      tags:
+      - User
+  /users/me:
+    patch:
+      consumes:
+      - application/json
+      description: Update User Profile
+      parameters:
+      - description: Body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/main.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated
+          schema:
+            $ref: '#/definitions/main.UpdateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update User Profile
+      tags:
+      - User
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

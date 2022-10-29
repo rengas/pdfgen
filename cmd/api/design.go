@@ -5,99 +5,80 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/rengas/pdfgen/pkg/design"
+	pgerror "github.com/rengas/pdfgen/pkg/errors"
 	"github.com/rengas/pdfgen/pkg/httputils"
+	"github.com/rengas/pdfgen/pkg/logging"
+	"github.com/rengas/pdfgen/pkg/pagination"
 	"html/template"
 	"net/http"
-	"reflect"
 	"strconv"
 )
 
 type DesignAPI struct {
 	designRepo DesignRepository
-	minfier    Minifier
+	minifier   Minifier
 }
 
 func NewDesignAPI(designRepo DesignRepository,
 	minifier Minifier) *DesignAPI {
 	return &DesignAPI{
 		designRepo: designRepo,
-		minfier:    minifier,
+		minifier:   minifier,
 	}
 }
 
-type CreateTemplateRequest struct {
-	Name      string       `json:"name"`
-	ProfileId string       `json:"profileId"`
-	Design    string       `json:"design"`
-	Fields    design.Attrs `json:"fields"`
-}
-
-func (c CreateTemplateRequest) Validate() error {
-
-	if c.Name == "" {
-		return errors.New("name is empty")
-	}
-
-	if c.ProfileId == "" {
-		return errors.New("profileId is empty")
-	}
-
-	if c.Design == "" {
-		return errors.New("design is empty")
-	}
-
-	if c.Fields != nil {
-		for k, v := range c.Fields {
-			v := reflect.ValueOf(v)
-			switch v.Kind() {
-			case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
-				reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String, reflect.Slice,
-				reflect.Array, reflect.Map:
-				continue
-			default:
-				return errors.New(fmt.Sprintf("%s has unsupported type for value", k))
-			}
-		}
-	}
-
-	return nil
-}
-
+// CreateDesign func for register.
+// @Description  Create a new Design.
+// @Summary      Create Design
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Param        CreateDesignRequest body  CreateDesignRequest  true  "register details"
+// @Success      200           {object}  CreateDesignResponse 		"Created"
+// @Failure      400           {object}  httputils.ErrorResponse    "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse    "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse    "Internal Server Error"
+// @Router       /design [post]
 func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
-	var t CreateTemplateRequest
+	ctx := req.Context()
+	var t CreateDesignRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
+		logging.WithContext(ctx).WithError(err)
 		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
 		return
 	}
 
-	profileId, ok := req.Context().Value("profileId").(string)
+	userId, ok := ctx.Value("userId").(string)
 	if !ok {
-		httputils.BadRequest(context.TODO(), w, errors.New("profileId is missing"))
+		logging.Debug("unable to get userId from context")
+		httputils.NotFound(ctx, w, pgerror.ErrUnableToGetUserIdFromContext)
 		return
 	}
-	t.ProfileId = profileId
+
+	t.UserId = userId
 
 	err = t.Validate()
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, err)
+		logging.WithField(logging.Field{Label: "validation", Value: err.Error()}).Debug("validation failed")
+		httputils.BadRequest(ctx, w, err)
 		return
 	}
 
 	ds := design.Design{
-		Id:        uuid.NewString(),
-		ProfileId: t.ProfileId,
-		Name:      t.Name,
-		Fields:    nil,
+		Id:     uuid.NewString(),
+		UserId: t.UserId,
+		Name:   t.Name,
+		Fields: nil,
 	}
 
 	dt, err := base64.StdEncoding.DecodeString(t.Design)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("design must be base64 encoded"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignMustBeBase64Encoded)
 		return
 	}
 
@@ -105,13 +86,15 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 	//validate if valid design
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("invalid html design"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignInvalidHTML)
 		return
 	}
 
-	mt, err := d.minfier.HTML(ws)
+	mt, err := d.minifier.HTML(ws)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("unable to minify template"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignUnableToMinify)
 		return
 	}
 
@@ -123,65 +106,48 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 
 	err = d.designRepo.Save(context.Background(), ds)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("unable to update design"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignUnableToUpdate)
 		return
 	}
 
-	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: ds.Id})
+	httputils.OK(context.TODO(), w, CreateDesignResponse{Id: ds.Id})
 }
 
-type UpdateTemplateRequest struct {
-	Name   string       `json:"name"`
-	Design string       `json:"design"`
-	Fields design.Attrs `json:"fields"`
-}
-
-func (c UpdateTemplateRequest) Validate() error {
-
-	if c.Name == "" {
-		return errors.New("name is empty")
-	}
-
-	if c.Design == "" {
-		return errors.New("design is empty")
-	}
-
-	if c.Fields != nil {
-		for k, v := range c.Fields {
-			v := reflect.ValueOf(v)
-			switch v.Kind() {
-			case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
-				reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String, reflect.Slice,
-				reflect.Array, reflect.Map:
-				continue
-			default:
-				return errors.New(fmt.Sprintf("%s has unsupported type for value", k))
-			}
-		}
-	}
-
-	return nil
-}
-
+// UpdateDesign func for updating new design.
+// @Description  Update a Design.
+// @Summary      Update Design
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Param   	 designId     path    string     true        "design id"
+// @Param        UpdateDesignRequest body  UpdateDesignRequest  true  "register details"
+// @Success      200           {object}  UpdateDesignResponse "Created"
+// @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
+// @Router       /design/{designId} [put]
 func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
 	designId := chi.URLParam(req, "designId")
 	if designId == "" {
-		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+		logging.WithContext(ctx).Debug("unable to get designId from context")
+		httputils.BadRequest(context.TODO(), w, ErrDesignUserIdIsEmpty)
 		return
 	}
 
-	var t UpdateTemplateRequest
+	var t UpdateDesignRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request body"))
-
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignUnableToReadRequest)
 		return
 	}
 
 	err = t.Validate()
 	if err != nil {
+		logging.WithField(logging.Field{Label: "validation", Value: err.Error()}).Debug("validation failed")
 		httputils.BadRequest(context.TODO(), w, err)
-
 		return
 	}
 
@@ -193,8 +159,8 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 
 	dt, err := base64.StdEncoding.DecodeString(t.Design)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("design must be base64 encoded"))
-
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignMustBeBase64Encoded)
 		return
 	}
 
@@ -202,15 +168,15 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 	//validate if valid design
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
-
-		httputils.BadRequest(context.TODO(), w, errors.New("invalid html design"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.BadRequest(context.TODO(), w, ErrDesignInvalidHTML)
 		return
 	}
 
-	mt, err := d.minfier.HTML(ws)
+	mt, err := d.minifier.HTML(ws)
 	if err != nil {
-		httputils.InternalServerError(context.TODO(), w, errors.New("unable to minify template"))
-
+		logging.WithContext(ctx).WithError(err)
+		httputils.InternalServerError(context.TODO(), w, ErrDesignUnableToMinify)
 		return
 	}
 
@@ -222,156 +188,193 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 
 	err = d.designRepo.Update(context.Background(), ds)
 	if err != nil {
-		httputils.InternalServerError(context.TODO(), w, errors.New("unable to update design"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.InternalServerError(context.TODO(), w, ErrDesignUnableToUpdate)
 		return
 	}
 
-	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: ds.Id})
+	httputils.OK(context.TODO(), w, UpdateDesignResponse{Id: ds.Id})
 }
 
+// GetDesign func for updating new design.
+// @Description  Get a Design.
+// @Summary      Get Design
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Param   	 designId     path    string     true   "design id"
+// @Success      200           {object}  GetDesignResponse
+// @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
+// @Router       /design/{designId} [get]
 func (d *DesignAPI) GetDesign(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
 	designId := chi.URLParam(req, "designId")
 	if designId == "" {
-		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+		logging.WithContext(ctx).Debug("unable to get designId from context")
+		httputils.BadRequest(context.TODO(), w, ErrDesignDesignIdIsEmpty)
 		return
 	}
 
 	ds, err := d.designRepo.GetById(context.TODO(), designId)
 	if err != nil {
-
-		httputils.InternalServerError(context.TODO(), w, errors.New("unable to get design by id"))
+		logging.WithContext(ctx).WithError(err)
+		httputils.InternalServerError(context.TODO(), w, ErrDesignUnableToGetDesign)
 		return
 	}
-	httputils.OK(context.TODO(), w, ds)
+
+	httputils.OK(context.TODO(), w, GetDesignResponse(ds))
 }
 
+// ListDesign func for updating new design.
+// @Description  List Designs.
+// @Summary      List Design
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Success      200           {object}  ListDesignResponse
+// @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
+// @Router       /design [get]
 func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
-
-	profileId, ok := req.Context().Value("profileId").(string)
+	ctx := req.Context()
+	userId, ok := ctx.Value("userId").(string)
 	if !ok {
-		httputils.BadRequest(context.TODO(), w, errors.New("profileId is empty"))
+		logging.Debug("unable to get userId from context")
+		httputils.BadRequest(context.TODO(), w, pgerror.ErrUnableToGetUserIdFromContext)
 		return
 	}
 
 	count := req.URL.Query().Get("count")
 	if count == "" {
-		httputils.BadRequest(context.TODO(), w, errors.New("count is empty"))
+		logging.Debug("count is empty")
+		httputils.BadRequest(context.TODO(), w, ErrDesignCountIsEmpty)
 		return
 	}
 
 	c, err := strconv.ParseInt(count, 10, 64)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("invalid count"))
+		logging.Debug("unable to parse count")
+		httputils.BadRequest(context.TODO(), w, ErrDesignCountInvalid)
 		return
 	}
 
 	page := req.URL.Query().Get("page")
 	if page == "" {
-		httputils.BadRequest(context.TODO(), w, errors.New("page is empty"))
+		logging.Debug("page is empty ")
+		httputils.BadRequest(context.TODO(), w, ErrDesignPageIsEmpty)
 		return
 	}
 
 	p, err := strconv.ParseInt(page, 10, 64)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("invalid page"))
+		logging.WithContext(ctx).WithError(err).Debug("unable to parse page")
+		httputils.BadRequest(context.TODO(), w, ErrDesignPageInvalid)
 		return
 	}
 
 	q := req.URL.Query().Get("search")
 	lq := design.ListQuery{
-		ProfileId: profileId,
-		Limit:     c,
-		Page:      p,
+		UserId: userId,
+		Limit:  c,
+		Page:   p,
 	}
 
 	var ds []design.Design
-	var pagi design.Pagination
+	var pagi pagination.Pagination
 
 	if q != "" {
 		ds, pagi, err = d.designRepo.Search(context.TODO(), lq)
+		if err != nil {
+			logging.WithContext(ctx).Error(err.Error())
+			httputils.BadRequest(context.TODO(), w, ErrDesignUnableToGetDesigns)
+			return
+		}
 
 	} else {
-		ds, pagi, err = d.designRepo.ListByProfileId(context.TODO(), lq)
+		ds, pagi, err = d.designRepo.ListByUserId(context.TODO(), lq)
+		if err != nil {
+			logging.WithContext(ctx).Error(err.Error())
+			httputils.BadRequest(context.TODO(), w, ErrDesignUnableToGetDesigns)
+			return
+		}
 	}
 
-	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("unable to get designs"))
-		return
-	}
-
-	httputils.WritePaginatedJSON(w,
-		pagi,
-		ds,
+	httputils.WriteJSON(ctx, w,
+		ListDesignResponse{
+			Designs:    ds,
+			Pagination: pagi,
+		},
 		http.StatusOK)
 }
 
+// DeleteDesign func for updating new design.
+// @Description  Delete a Design.
+// @Summary      Delete Design
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Param   	 designId     path    string     true   "design id"
+// @Success      200           {object}  DeleteDesignResponse
+// @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
+// @Router       /design/{designId} [delete]
 func (d *DesignAPI) DeleteDesign(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
 	designId := chi.URLParam(req, "designId")
 	if designId == "" {
+		logging.WithContext(ctx).Debug("unable to get designId from context")
 		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
 		return
 	}
 
 	err := d.designRepo.Delete(context.TODO(), designId)
 	if err != nil {
-		httputils.InternalServerError(context.TODO(), w, errors.New("Unable to get design by id"))
+		logging.WithContext(ctx).Error(err.Error())
+		httputils.InternalServerError(context.TODO(), w, errors.New("unable to get design by id"))
 		return
 	}
-	httputils.OK(context.TODO(), w, httputils.OkResponse{Id: designId})
+	httputils.OK(context.TODO(), w, DeleteDesignResponse{Id: designId})
 
 }
 
-type ValidateTemplateRequest struct {
-	Name   string       `json:"name"`
-	Design string       `json:"design"`
-	Fields design.Attrs `json:"fields"`
-}
-
-func (c ValidateTemplateRequest) Validate() error {
-
-	if c.Name == "" {
-		return errors.New("name is empty")
-	}
-
-	if c.Design == "" {
-		return errors.New("design is empty")
-	}
-
-	if c.Fields != nil {
-		for k, v := range c.Fields {
-			v := reflect.ValueOf(v)
-			switch v.Kind() {
-			case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
-				reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String, reflect.Slice,
-				reflect.Array, reflect.Map:
-				continue
-			default:
-				return errors.New(fmt.Sprintf("%s has unsupported type for value", k))
-			}
-		}
-	}
-
-	return nil
-}
-
+// ValidateDesign func for updating new design.
+// @Description  Validate a Design.
+// @Summary      Validate Design
+// @Tags         Design
+// @Accept       json
+// @Produce      json
+// @Param        ValidateDesignRequest body  ValidateDesignRequest  true  "register details"
+// @Success      200           {object}  ValidateDesignResponse
+// @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
+// @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
+// @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
+// @Router       /design/validate [post]
 func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
-
-	var t ValidateTemplateRequest
+	ctx := req.Context()
+	var t ValidateDesignRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
+		logging.WithContext(ctx).Error(err.Error())
+		httputils.BadRequest(context.TODO(), w, ErrDesignUnableToReadRequest)
 		return
 	}
 
 	err = t.Validate()
 	if err != nil {
+		logging.WithField(logging.Field{Label: "validation", Value: err.Error()}).Debug("validation failed")
 		httputils.BadRequest(context.TODO(), w, err)
 		return
 	}
 
 	dt, err := base64.StdEncoding.DecodeString(t.Design)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("design must be base64 encoded"))
+		logging.WithContext(ctx).Error(err.Error())
+		httputils.BadRequest(context.TODO(), w, ErrDesignMustBeBase64Encoded)
 		return
 	}
 
@@ -379,14 +382,16 @@ func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 	//validate if valid design
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
-		httputils.BadRequest(context.TODO(), w, errors.New("invalid html design"))
+		logging.WithContext(ctx).Error(err.Error())
+		httputils.BadRequest(context.TODO(), w, ErrDesignInvalidHTML)
 		return
 	}
 
 	if t.Fields != nil {
 		tl, err := template.New(t.Name).Parse(t.Design)
 		if err != nil {
-			httputils.BadRequest(context.TODO(), w, errors.New("unable to parse template"))
+			logging.WithContext(ctx).Error(err.Error())
+			httputils.BadRequest(context.TODO(), w, ErrDesignUnableToParseDesign)
 			return
 		}
 
@@ -394,10 +399,11 @@ func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 
 		err = tl.Execute(&buf, t.Fields)
 		if err != nil {
-			httputils.BadRequest(context.TODO(), w, errors.New("unable to match fields to design"))
+			logging.WithContext(ctx).Error(err.Error())
+			httputils.BadRequest(context.TODO(), w, ErrDesignUnableToMatchFieldsToDesign)
 			return
 		}
 
 	}
-	httputils.OK(context.TODO(), w, httputils.OkResponse{Message: "design is good to go"})
+	httputils.OK(context.TODO(), w, ValidateDesignResponse{Message: "design is good to go"})
 }

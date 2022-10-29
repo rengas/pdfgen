@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rengas/pdfgen/pkg/design"
+	"github.com/rengas/pdfgen/pkg/pagination"
 	"net/http"
 )
 
@@ -76,7 +76,7 @@ func WriteFile(w http.ResponseWriter, b []byte, statusCode int) error {
 	return nil
 }
 
-func WritePaginatedJSON(w http.ResponseWriter, pagination design.Pagination, v interface{}, statusCode int) error {
+func WritePaginatedJSON(w http.ResponseWriter, pagination pagination.Pagination, v interface{}, statusCode int) error {
 	w.Header().Add("count", fmt.Sprintf("%d", pagination.Page))
 	w.Header().Add("total", fmt.Sprintf("%d", pagination.Total))
 	w.Header().Add("Content-Type", "application/json")
