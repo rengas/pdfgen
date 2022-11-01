@@ -384,7 +384,7 @@ paths:
       summary: Update Design
       tags:
       - Design
-  /design/generate:
+  /generate:
     post:
       consumes:
       - application/json
@@ -412,40 +412,6 @@ paths:
           schema:
             $ref: '#/definitions/httputils.ErrorResponse'
       summary: GeneratePDF
-      tags:
-      - Design
-  /design/validate:
-    post:
-      consumes:
-      - application/json
-      description: Validate a Design.
-      parameters:
-      - description: register details
-        in: body
-        name: ValidateDesignRequest
-        required: true
-        schema:
-          $ref: '#/definitions/main.ValidateDesignRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/main.ValidateDesignResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputils.ErrorResponse'
-        "422":
-          description: Validation errors
-          schema:
-            $ref: '#/definitions/httputils.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputils.ErrorResponse'
-      summary: Validate Design
       tags:
       - Design
   /login:
@@ -592,6 +558,40 @@ paths:
       summary: Update User Profile
       tags:
       - User
+  /validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate a Design.
+      parameters:
+      - description: register details
+        in: body
+        name: ValidateDesignRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.ValidateDesignRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.ValidateDesignResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "422":
+          description: Validation errors
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputils.ErrorResponse'
+      summary: Validate Design
+      tags:
+      - Design
 securityDefinitions:
   BearerAuth:
     in: header

@@ -32,7 +32,7 @@ func NewGeneratorAPI(designRepo DesignRepository, renderer Renderer) *GeneratorA
 // @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
 // @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
-// @Router       /design/generate [post]
+// @Router       /generate [post]
 func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 	var t GeneratePDFRequest
 	err := httputils.ReadJson(req, &t)

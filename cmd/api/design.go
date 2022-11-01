@@ -353,7 +353,7 @@ func (d *DesignAPI) DeleteDesign(w http.ResponseWriter, req *http.Request) {
 // @Failure      400           {object}  httputils.ErrorResponse "Bad Request"
 // @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
-// @Router       /design/validate [post]
+// @Router       /validate [post]
 func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	var t ValidateDesignRequest
