@@ -275,8 +275,8 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	q := req.URL.Query().Get("search")
 	lq := design.ListQuery{
+
 		UserId: userId,
 		Limit:  c,
 		Page:   p,
@@ -285,7 +285,9 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 	var ds []design.Design
 	var pagi pagination.Pagination
 
+	q := req.URL.Query().Get("search")
 	if q != "" {
+		lq.Query = q
 		ds, pagi, err = d.designRepo.Search(context.TODO(), lq)
 		if err != nil {
 			logging.WithContext(ctx).Error(err.Error())
