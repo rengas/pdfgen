@@ -15,6 +15,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type DesignAPI struct {
@@ -185,6 +186,7 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 	if t.Fields != nil {
 		ds.Fields = &t.Fields
 	}
+	ds.UpdatedAt = time.Now().UTC()
 
 	err = d.designRepo.Update(context.Background(), ds)
 	if err != nil {
