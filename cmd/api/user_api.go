@@ -91,7 +91,7 @@ func (u UpdateUserRequest) GetUser() user.User {
 // @Failure      422   {object}  httputils.ErrorResponse   "Validation errors"
 // @Failure      500   {object}  httputils.ErrorResponse   "Internal Server Error"
 // @Security     BearerAuth
-// @Router       /user [patch]
+// @Router       /user [put]
 func (u *UserAPI) UpdateUser(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	userId, ok := ctx.Value("userId").(string)

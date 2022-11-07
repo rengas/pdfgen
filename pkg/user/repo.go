@@ -60,9 +60,9 @@ func (r *Repository) GetById(ctx context.Context, id string) (User, error) {
 
 func (r *Repository) Update(ctx context.Context, u User) error {
 
-	q := `UPDATE users SET email=$2, password_hash=$3,first_name=$4, last_name=$5, updated_at=$6 WHERE id=$1`
+	q := `UPDATE users SET email=$2,first_name=$4, last_name=$5, updated_at=$6 WHERE id=$1`
 
-	_, err := r.db.ExecContext(ctx, q, u.Id, u.Email, u.PasswordHash, u.FirstName, u.LastName, u.UpdatedAt)
+	_, err := r.db.ExecContext(ctx, q, u.Id, u.Email, u.FirstName, u.LastName, u.UpdatedAt)
 	if err != nil {
 		return err
 	}
