@@ -103,6 +103,7 @@ func (u *UserAPI) UpdateUser(w http.ResponseWriter, req *http.Request) {
 
 	usr, err := u.userRepo.GetById(ctx, userId)
 	if err != nil {
+		logging.WithContext(ctx).Error(err.Error())
 		if errors.Is(err, user.ErrUserNotFound) {
 			httputils.NotFound(ctx, w, mkerror.ErrNotFound)
 		}
@@ -113,12 +114,14 @@ func (u *UserAPI) UpdateUser(w http.ResponseWriter, req *http.Request) {
 	var ur UpdateUserRequest
 	err = httputils.ReadJson(req, &ur)
 	if err != nil {
+		logging.WithContext(ctx).Error(err.Error())
 		httputils.BadRequest(ctx, w, err)
 		return
 	}
 
 	err = ur.Validate()
 	if err != nil {
+		logging.WithContext(ctx).Error(err.Error())
 		httputils.UnProcessableEntity(ctx, w, err)
 		return
 	}
@@ -126,11 +129,13 @@ func (u *UserAPI) UpdateUser(w http.ResponseWriter, req *http.Request) {
 	mUser := ur.GetUser()
 	usrEmail, err := u.userRepo.GetByEmail(ctx, ur.Email)
 	if err != nil && !errors.Is(err, user.ErrUserNotFound) {
+		logging.WithContext(ctx).Error(err.Error())
 		httputils.UnAuthorized(ctx, w, err)
 		return
 	}
 
 	if err == nil && usr.Id != usrEmail.Id {
+		logging.WithContext(ctx).Debug("email already exists")
 		httputils.Conflict(ctx, w, ErrUserWithEmailExists)
 		return
 	}
@@ -146,6 +151,7 @@ func (u *UserAPI) UpdateUser(w http.ResponseWriter, req *http.Request) {
 
 	err = u.userRepo.Update(ctx, updateUser)
 	if err != nil {
+		logging.WithContext(ctx).Error(err.Error())
 		httputils.InternalServerError(ctx, w, mkerror.ErrInternalError)
 		return
 	}
