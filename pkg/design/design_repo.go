@@ -34,10 +34,10 @@ func (r *DesignRepository) Save(ctx context.Context, p Design) error {
 	return nil
 }
 
-func (r *DesignRepository) GetById(ctx context.Context, id string) (Design, error) {
+func (r *DesignRepository) GetById(ctx context.Context, userId, designId string) (Design, error) {
 	var d Design
-	err := r.db.QueryRowContext(ctx, "SELECT id,name,user_id, fields, template FROM design WHERE id = $1 and deleted_at is NULL", id).
-		Scan(&d.Id, &d.Name, &d.UserId, &d.Fields, &d.Template)
+	err := r.db.QueryRowContext(ctx, "SELECT id,name,user_id, fields, template FROM design WHERE user_id = $1 and id =$2 and deleted_at is NULL", userId, designId).
+		Scan(&d.Id, &d.UserId, &d.Name, &d.UserId, &d.Fields, &d.Template)
 	if err != nil {
 		return Design{}, err
 	}
@@ -60,9 +60,10 @@ func (r *DesignRepository) Update(ctx context.Context, p Design) error {
 	return nil
 }
 
-func (r *DesignRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "Update design set deleted_at=$2 where id=$1",
-		id,
+func (r *DesignRepository) Delete(ctx context.Context, userId, designId string) error {
+	_, err := r.db.ExecContext(ctx, "Update design set deleted_at=$2 where user_id=$1 and id=$2",
+		userId,
+		designId,
 		time.Now().UTC(),
 	)
 	if err != nil {

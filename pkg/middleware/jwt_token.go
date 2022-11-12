@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"context"
+	"github.com/rengas/pdfgen/pkg/contexts"
 	mkerror "github.com/rengas/pdfgen/pkg/errors"
 	"github.com/rengas/pdfgen/pkg/httputils"
 	"github.com/rengas/pdfgen/pkg/token"
@@ -42,13 +42,13 @@ func (j JWTMiddleware) VerifyToken(next http.Handler) http.Handler {
 			httputils.UnAuthorized(ctx, w, mkerror.ErrUnAuthorizedError)
 			return
 		}
-		userId, ok := c["userId"]
+		userId, ok := c["userId"].(string)
 		if !ok {
 			httputils.UnAuthorized(ctx, w, mkerror.ErrUnAuthorizedError)
 			return
 		}
 
-		ctx = context.WithValue(ctx, "userId", userId)
+		ctx = contexts.WithUserId(ctx, userId)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

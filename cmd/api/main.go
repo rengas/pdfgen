@@ -57,9 +57,9 @@ type JWTToken interface {
 
 type DesignRepository interface {
 	Save(ctx context.Context, d design.Design) error
-	GetById(ctx context.Context, id string) (design.Design, error)
 	Update(ctx context.Context, p design.Design) error
-	Delete(ctx context.Context, id string) error
+	GetById(ctx context.Context, userId, designId string) (design.Design, error)
+	Delete(ctx context.Context, userId string, designId string) error
 	ListByUserId(ctx context.Context, lq design.ListQuery) ([]design.Design, pagination.Pagination, error)
 	Search(ctx context.Context, lq design.ListQuery) ([]design.Design, pagination.Pagination, error)
 }
