@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/rengas/pdfgen/pkg/contexts"
 	"github.com/rengas/pdfgen/pkg/design"
 	pgerror "github.com/rengas/pdfgen/pkg/errors"
 	"github.com/rengas/pdfgen/pkg/httputils"
@@ -43,24 +44,22 @@ func NewDesignAPI(designRepo DesignRepository,
 // @Failure      422           {object}  httputils.ErrorResponse    "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse    "Internal Server Error"
 // @Router       /design [post]
-func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (d *DesignAPI) CreateDesign(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var t CreateDesignRequest
-	err := httputils.ReadJson(req, &t)
+	err := httputils.ReadJson(r, &t)
 	if err != nil {
 		logging.WithContext(ctx).WithError(err)
 		httputils.BadRequest(context.TODO(), w, errors.New("unable to read request"))
 		return
 	}
 
-	userId, ok := ctx.Value("userId").(string)
-	if !ok {
+	t.UserId = d.getUserId(w, r)
+	if t.UserId == "" {
 		logging.Debug("unable to get userId from context")
 		httputils.NotFound(ctx, w, pgerror.ErrUnableToGetUserIdFromContext)
 		return
 	}
-
-	t.UserId = userId
 
 	err = t.Validate()
 	if err != nil {
@@ -128,17 +127,22 @@ func (d *DesignAPI) CreateDesign(w http.ResponseWriter, req *http.Request) {
 // @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
 // @Router       /design/{designId} [put]
-func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	designId := chi.URLParam(req, "designId")
-	if designId == "" {
-		logging.WithContext(ctx).Debug("unable to get designId from context")
-		httputils.BadRequest(context.TODO(), w, ErrDesignUserIdIsEmpty)
+func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userId, designId := d.getUserIdAndDesignId(w, r)
+	if userId == "" || designId == "" {
+		return
+	}
+
+	ds, err := d.designRepo.GetById(context.TODO(), userId, designId)
+	if err != nil {
+		logging.WithContext(ctx).WithError(err)
+		httputils.InternalServerError(context.TODO(), w, ErrDesignUnableToGetDesign)
 		return
 	}
 
 	var t UpdateDesignRequest
-	err := httputils.ReadJson(req, &t)
+	err = httputils.ReadJson(r, &t)
 	if err != nil {
 		logging.WithContext(ctx).WithError(err)
 		httputils.BadRequest(context.TODO(), w, ErrDesignUnableToReadRequest)
@@ -152,7 +156,7 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ds := design.Design{
+	ds = design.Design{
 		Id:     designId,
 		Name:   t.Name,
 		Fields: nil,
@@ -165,8 +169,8 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ws := string(dt)
 	//validate if valid design
+	ws := string(dt)
 	_, err = template.New(t.Name).Parse(ws)
 	if err != nil {
 		logging.WithContext(ctx).WithError(err)
@@ -210,16 +214,15 @@ func (d *DesignAPI) UpdateDesign(w http.ResponseWriter, req *http.Request) {
 // @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
 // @Router       /design/{designId} [get]
-func (d *DesignAPI) GetDesign(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	designId := chi.URLParam(req, "designId")
-	if designId == "" {
-		logging.WithContext(ctx).Debug("unable to get designId from context")
-		httputils.BadRequest(context.TODO(), w, ErrDesignDesignIdIsEmpty)
+func (d *DesignAPI) GetDesign(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userId, designId := d.getUserIdAndDesignId(w, r)
+	if userId == "" || designId == "" {
 		return
 	}
 
-	ds, err := d.designRepo.GetById(context.TODO(), designId)
+	ds, err := d.designRepo.GetById(context.TODO(), userId, designId)
 	if err != nil {
 		logging.WithContext(ctx).WithError(err)
 		httputils.InternalServerError(context.TODO(), w, ErrDesignUnableToGetDesign)
@@ -240,16 +243,10 @@ func (d *DesignAPI) GetDesign(w http.ResponseWriter, req *http.Request) {
 // @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
 // @Router       /design [get]
-func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	userId, ok := ctx.Value("userId").(string)
-	if !ok {
-		logging.Debug("unable to get userId from context")
-		httputils.BadRequest(context.TODO(), w, pgerror.ErrUnableToGetUserIdFromContext)
-		return
-	}
+func (d *DesignAPI) ListDesign(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	count := req.URL.Query().Get("count")
+	count := r.URL.Query().Get("count")
 	if count == "" {
 		logging.Debug("count is empty")
 		httputils.BadRequest(context.TODO(), w, ErrDesignCountIsEmpty)
@@ -263,7 +260,7 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	page := req.URL.Query().Get("page")
+	page := r.URL.Query().Get("page")
 	if page == "" {
 		logging.Debug("page is empty ")
 		httputils.BadRequest(context.TODO(), w, ErrDesignPageIsEmpty)
@@ -277,8 +274,14 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	lq := design.ListQuery{
+	userId := d.getUserId(w, r)
+	if userId == "" {
+		logging.Debug("unable to get userId from context")
+		httputils.NotFound(ctx, w, pgerror.ErrUnableToGetUserIdFromContext)
+		return
+	}
 
+	lq := design.ListQuery{
 		UserId: userId,
 		Limit:  c,
 		Page:   p,
@@ -287,7 +290,7 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 	var ds []design.Design
 	var pagi pagination.Pagination
 
-	q := req.URL.Query().Get("search")
+	q := r.URL.Query().Get("search")
 	if q != "" {
 		lq.Query = q
 		ds, pagi, err = d.designRepo.Search(context.TODO(), lq)
@@ -326,17 +329,21 @@ func (d *DesignAPI) ListDesign(w http.ResponseWriter, req *http.Request) {
 // @Failure      422           {object}  httputils.ErrorResponse "Validation errors"
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
 // @Router       /design/{designId} [delete]
-func (d *DesignAPI) DeleteDesign(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-
-	designId := chi.URLParam(req, "designId")
-	if designId == "" {
-		logging.WithContext(ctx).Debug("unable to get designId from context")
-		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+func (d *DesignAPI) DeleteDesign(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userId, designId := d.getUserIdAndDesignId(w, r)
+	if userId == "" || designId == "" {
 		return
 	}
 
-	err := d.designRepo.Delete(context.TODO(), designId)
+	_, err := d.designRepo.GetById(context.TODO(), userId, designId)
+	if err != nil {
+		logging.WithContext(ctx).WithError(err)
+		httputils.InternalServerError(context.TODO(), w, ErrDesignUnableToGetDesign)
+		return
+	}
+
+	err = d.designRepo.Delete(context.TODO(), userId, designId)
 	if err != nil {
 		logging.WithContext(ctx).Error(err.Error())
 		httputils.InternalServerError(context.TODO(), w, errors.New("unable to get design by id"))
@@ -410,4 +417,35 @@ func (d *DesignAPI) ValidateDesign(w http.ResponseWriter, req *http.Request) {
 
 	}
 	httputils.OK(context.TODO(), w, ValidateDesignResponse{Message: "design is good to go"})
+}
+
+// getUserIdAndDesignId get userId from context
+func (d *DesignAPI) getUserId(w http.ResponseWriter, req *http.Request) string {
+	ctx := req.Context()
+	userId, err := contexts.UserIdFromContext(ctx)
+	if err != nil {
+		logging.Debug("unable to get userId from context")
+		httputils.BadRequest(context.TODO(), w, pgerror.ErrUnableToGetUserIdFromContext)
+		return ""
+	}
+	return userId
+}
+
+//getUserIdAndDesignId get both userId and designId from context
+func (d *DesignAPI) getUserIdAndDesignId(w http.ResponseWriter, req *http.Request) (string, string) {
+	ctx := req.Context()
+	designId := chi.URLParam(req, "designId")
+	if designId == "" {
+		logging.WithContext(ctx).Debug("unable to get designId from context")
+		httputils.BadRequest(context.TODO(), w, errors.New("designId is empty"))
+		return "", ""
+	}
+
+	userId, err := contexts.UserIdFromContext(ctx)
+	if err != nil {
+		logging.Debug("unable to get userId from context")
+		httputils.BadRequest(context.TODO(), w, pgerror.ErrUnableToGetUserIdFromContext)
+		return "", ""
+	}
+	return designId, userId
 }
