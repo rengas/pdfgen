@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/rengas/pdfgen/pkg/contexts"
+	pgerror "github.com/rengas/pdfgen/pkg/errors"
 	"github.com/rengas/pdfgen/pkg/httputils"
+	"github.com/rengas/pdfgen/pkg/logging"
 	"html/template"
 	"net/http"
 	"strings"
@@ -34,6 +37,7 @@ func NewGeneratorAPI(designRepo DesignRepository, renderer Renderer) *GeneratorA
 // @Failure      500           {object}  httputils.ErrorResponse  "Internal Server Error"
 // @Router       /generate [post]
 func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
 	var t GeneratePDFRequest
 	err := httputils.ReadJson(req, &t)
 	if err != nil {
@@ -47,7 +51,14 @@ func (d *GeneratorAPI) GeneratePDF(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	design, err := d.designRepo.GetById(context.TODO(), t.DesignId)
+	userId, err := contexts.UserIdFromContext(ctx)
+	if err != nil {
+		logging.Debug("unable to get userId from context")
+		httputils.BadRequest(context.TODO(), w, pgerror.ErrUnableToGetUserIdFromContext)
+		return
+	}
+
+	design, err := d.designRepo.GetById(ctx, userId, t.DesignId)
 	if err != nil {
 		httputils.BadRequest(context.TODO(), w, errors.New("unable to get design"))
 		return
